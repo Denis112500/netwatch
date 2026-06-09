@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetWatch</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #1e2330;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+    }
+
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #last-update {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .alert-banner {
+      margin: 1rem 1.5rem 0;
+      padding: 0.6rem 1rem;
+      background: #2d1f07;
+      border: 1px solid #92400e;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #fbbf24;
+      display: none;
+    }
+
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 1.5rem;
+    }
+
+    .no-agents {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 4rem;
+      color: #475569;
+      font-size: 14px;
+    }
+
+    .agent-card {
+      background: #161b27;
+      border: 1px solid #1e2330;
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: border-color 0.2s;
+    }
+
+    .agent-card:hover { border-color: #334155; }
+    .agent-card.offline { opacity: 0.45; }
+
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.1rem;
+    }
+
+    .agent-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .agent-ip {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 3px;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    .status-online  { background: #052e16; color: #4ade80; }
+    .status-offline { background: #2d0a0a; color: #f87171; }
+
+    .metrics { display: flex; flex-direction: column; gap: 11px; }
+
+    .metric-row { display: flex; flex-direction: column; gap: 5px; }
+
+    .metric-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .metric-val { font-weight: 600; color: #e2e8f0; }
+
+    .bar-bg {
+      background: #1e2330;
+      border-radius: 4px;
+      height: 5px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-CPU  { background: #818cf8; }
+    .bar-RAM  { background: #34d399; }
+    .bar-DISK { background: #fb923c; }
+    .bar-GPU  { background: #22d3ee; }
+
+    .GPU-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #1e2330;
+    }
+
+    .GPU-stat { flex: 1; text-align: center; }
+    .GPU-label { font-size: 11px; color: #64748b; }
+    .GPU-val { font-size: 13px; font-weight: 600; margin-top: 3px; color: #e2e8f0; }
+
+    .net-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #1e2330;
+    }
+
+    .net-stat { flex: 1; text-align: center; }
+
+    .net-label {
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .net-val {
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 3px;
+      color: #e2e8f0;
+    }
+
+    .uptime {
+      font-size: 11px;
+      color: #475569;
+      text-align: right;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot-live"></span> NetWatch</h1>
+  <span id="last-update">connecting...</span>
+</header>
+
+<div class="alert-banner" id="alert-banner"></div>
+
+<div class="agents-grid" id="agents-grid">
+  <div class="no-agents">Waiting for agents to connect...</div>
+</div>
+
+<script>
+  const API  = "http://localhost:8080/api/agents";
+  const POLL = 3000;
+
+  function fmtUptime(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `up ${h}h ${m}m` : `up ${m}m`;
+  }
+
+  function renderAgent(agent) {
+    const m = agent.metrics || {};
+    const online = agent.status === "online";
+    const CPU  = m.CPU  ?? 0;
+    const RAM  = m.RAM  ?? 0;
+    const DISK= m.DISK ?? 0;
+
+    const alerts = [];
+    if (CPU  > 90) alerts.push(`${agent.hostname}: CPU ${CPU}%`);
+    if (RAM  > 90) alerts.push(`${agent.hostname}: RAM ${RAM}%`);
+    if (DISK > 90) alerts.push(`${agent.hostname}: DISK ${DISK}%`);
+
+    const metricsHtml = (online && Object.keys(m).length) ? `
+      <div class="metrics">
+        <div class="metric-row">
+          <div class="metric-label"><span>CPU</span><span class="metric-val">${CPU}%</span></div>
+          <div class="bar-bg"><div class="bar-fill bar-CPU" style="width:${CPU}%"></div></div>
+        </div>
+        ${m.gpu_util !== undefined ? `
+        <div class="metric-row">
+          <div class="metric-label"><span>GPU</span><span class="metric-val">${m.gpu_util}%</span></div>
+          <div class="bar-bg"><div class="bar-fill bar-GPU" style="width:${m.gpu_util}%"></div></div>
+        </div>
+        <div class="GPU-row">
+          <div class="GPU-stat">
+            <div class="GPU-label">VRAM</div>
+            <div class="GPU-val">${m.gpu_mem_used_mb} / ${m.gpu_mem_total_mb} MB</div>
+          </div>
+          <div class="GPU-stat">
+            <div class="GPU-label">temp</div>
+            <div class="GPU-val">${m.gpu_temp}°C</div>
+          </div>
+        </div>` : ''}       
+        <div class="metric-row">
+          <div class="metric-label"><span>RAM</span><span class="metric-val">${RAM}%</span></div>
+          <div class="bar-bg"><div class="bar-fill bar-RAM" style="width:${RAM}%"></div></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label"><span>DISK</span><span class="metric-val">${DISK}%</span></div>
+          <div class="bar-bg"><div class="bar-fill bar-DISK" style="width:${DISK}%"></div></div>
+        </div>
+        <div class="net-row">
+          <div class="net-stat">
+            <div class="net-label">↑ sent</div>
+            <div class="net-val">${m.net_sent_mb ?? 0} MB</div>
+          </div>
+          <div class="net-stat">
+            <div class="net-label">↓ recv</div>
+            <div class="net-val">${m.net_recv_mb ?? 0} MB</div>
+          </div>
+        </div>
+        <div class="uptime">${fmtUptime(m.uptime ?? 0)}</div>
+      </div>` : `<div style="font-size:13px;color:#475569;padding-top:4px;">No metrics yet</div>`;
+
+    return {
+      html: `
+        <div class="agent-card ${online ? "" : "offline"}">
+          <div class="agent-header">
+            <div>
+              <div class="agent-name">🖥 ${agent.hostname}</div>
+              <div class="agent-ip">${agent.addr}</div>
+            </div>
+            <span class="status-badge ${online ? "status-online" : "status-offline"}">
+              ${online ? "online" : "offline"}
+            </span>
+          </div>
+          ${metricsHtml}
+        </div>`,
+      alerts
+    };
+  }
+
+  async function poll() {
+    try {
+      const res    = await fetch(API);
+      const agents = await res.json();
+      const grid   = document.getElementById("agents-grid");
+      const banner = document.getElementById("alert-banner");
+      const allAlerts = [];
+
+      if (!agents.length) {
+        grid.innerHTML = '<div class="no-agents">Waiting for agents to connect...</div>';
+      } else {
+        grid.innerHTML = agents.map(a => {
+          const { html, alerts } = renderAgent(a);
+          allAlerts.push(...alerts);
+          return html;
+        }).join("");
+      }
+
+      if (allAlerts.length) {
+        banner.style.display = "block";
+        banner.innerHTML = "⚠ High usage: " + allAlerts.join(" · ");
+      } else {
+        banner.style.display = "none";
+      }
+
+      document.getElementById("last-update").textContent =
+        "updated " + new Date().toLocaleTimeString();
+    } catch (e) {
+      document.getElementById("last-update").textContent = "server unreachable";
+    }
+  }
+
+  poll();
+  setInterval(poll, POLL);
+</script>
+
+</body>
+</html>

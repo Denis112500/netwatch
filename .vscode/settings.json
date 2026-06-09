@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "/home/denis/.pyenv/versions/3.12.9/bin/python",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}

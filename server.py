@@ -75,7 +75,8 @@ def handle_agent(conn: socket.socket, addr: tuple):
                         if hostname:
                             agents[hostname]["metrics"] = payload
                             agents[hostname]["last_seen"] = time.time()
-                    print(f"[<] {hostname} | CPU {payload.get('cpu')}% | RAM {payload.get('ram')}% | Disk {payload.get('disk')}%")
+                    gpu = f" | GPU {payload['gpu_util']}% {payload['gpu_temp']}°C" if 'gpu_util' in payload else ""
+                    print(f"[<] {hostname} | CPU {payload.get('CPU')}% | RAM {payload.get('RAM')}% | Disk {payload.get('DISK')}%{gpu}")
 
                 elif msg_type == HEARTBEAT:
                     with agents_lock:

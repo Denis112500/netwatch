@@ -7,7 +7,7 @@ import psutil
 import platform
 from protocol import encode, decode, REGISTER, METRICS, HEARTBEAT, DISCONNECT
 
-SERVER_IP = "127.0.0.1"  # change to actual server IP
+SERVER_IP = "100.75.84.55"  # change to actual server IP
 SERVER_PORT = 9000
 METRICS_INTERVAL = 3    # seconds
 HEARTBEAT_INTERVAL = 10 # seconds
